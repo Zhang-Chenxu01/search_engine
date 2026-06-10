@@ -1,0 +1,59 @@
+/* ── Reset & base ──────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    "Noto Sans SC",
+    sans-serif;
+  background: #f5f5f5;
+  color: #333;
+}
+
+a {
+  color: #1677ff;
+  text-decoration: none;
+}
+a:hover {
+  color: #4096ff;
+}
+
+/* ── Search result highlight ───────────────────────────────── */
+.highlight em,
+.search-result em,
+.ant-list-item-meta-description em {
+  font-style: normal;
+  color: #f5222d;
+  font-weight: 500;
+}
+
+/* ── Snapshot notice bar ───────────────────────────────────── */
+#snapshot-notice {
+  margin-bottom: 0 !important;
+}
+
+/* ── Page transitions ──────────────────────────────────────── */
+.fade-enter {
+  opacity: 0;
+}
+.fade-enter-active {
+  opacity: 1;
+  transition: opacity 200ms;
+}

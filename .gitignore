@@ -1,0 +1,79 @@
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
+
+# ── Virtual environments ─────────────────────────────────────
+.venv/
+venv/
+env/
+.env
+
+# ── Environment variables ────────────────────────────────────
+.env
+!.env.example
+
+# ── Scrapy ────────────────────────────────────────────────────
+.scrapy/
+httpcache/
+*.log
+
+# ── Logs ──────────────────────────────────────────────────────
+*.log
+
+# ── Frontend ──────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ── Data files (keep directory, ignore content) ──────────────
+# Crawler output — snapshots / attachments / jsonl are runtime data
+backend/data/snapshots/*
+!backend/data/snapshots/.gitkeep
+backend/data/attachments/*
+!backend/data/attachments/.gitkeep
+backend/data/jsonl/*
+!backend/data/jsonl/.gitkeep
+backend/data/*.zip
+
+# Root-level data mirror (if any)
+data/snapshots/*
+!data/snapshots/.gitkeep
+data/attachments/*
+!data/attachments/.gitkeep
+data/jsonl/*
+!data/jsonl/.gitkeep
+data/*.zip
+
+
+# ── Databases ─────────────────────────────────────────────────
+*.sqlite3
+*.db
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Docker volumes ────────────────────────────────────────────
+docker/mysql_data/
+docker/es_data/
+
+# ── Coverage & profiling ──────────────────────────────────────
+htmlcov/
+.coverage
+.coverage.*
+*.prof
