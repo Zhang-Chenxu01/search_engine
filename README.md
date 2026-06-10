@@ -80,24 +80,56 @@ python -m indexer.create_indices --force
 ### 6. 运行爬虫抓取网页
 
 ```bash
+# 模式匹配爬虫（快速，适合已知结构的站点）
 cd backend/crawler
 python -m scrapy crawl news
-# 输出：data/jsonl/news_YYYYMMDD_HHMMSS.jsonl
+
+# 大规模 BFS 爬虫（150K+ 页）
+cd backend/crawler
+python -m scrapy crawl broad -a max_pages=8000 -a global_max=150000 -s DEPTH_LIMIT=10
+# 输出：data/jsonl/broad_YYYYMMDD_HHMMSS.jsonl
 ```
 
-### 7. 导入数据到 MySQL + Elasticsearch
+### 7. 增量导入数据到 MySQL + Elasticsearch
 
 ```bash
 cd backend
-python -m indexer.import_pages --input data/jsonl/news_YYYYMMDD_HHMMSS.jsonl
+# 增量导入（自动去重：content_hash 不变则跳过）
+python -m indexer.incremental_index --input data/jsonl/broad_YYYYMMDD_HHMMSS.jsonl --batch-size 200
 ```
 
-### 8. 启动后端 API
+### 8. 附件处理（PDF / DOCX / XLSX 下载、解析、索引）
+
+```bash
+cd backend
+# 预览（不下载）
+python -m indexer.process_attachments --input data/jsonl/broad_YYYYMMDD_HHMMSS.jsonl --dry-run
+
+# 正式处理
+python -m indexer.process_attachments --input data/jsonl/broad_YYYYMMDD_HHMMSS.jsonl
+
+# 参数说明：
+#   --limit 100        限制处理数量
+#   --force            强制重新下载解析
+#   --file-types pdf,docx,xlsx  指定文件类型
+#   --max-size-mb 50   最大文件大小
+```
+
+### 9. 启动后端 API
 
 ```bash
 cd backend
 uvicorn app.main:app --reload --port 8000
 # API 文档：http://127.0.0.1:8000/docs
+```
+
+### 10. 启动前端
+
+```bash
+cd frontend
+npm install
+npm run dev
+# http://localhost:3000
 ```
 
 ### 9. 启动前端
@@ -158,8 +190,15 @@ search_engine/
 | GET | `/api/search/phrase` | 精确短语搜索 |
 | GET | `/api/search/wildcard` | 通配符搜索 |
 | GET | `/api/search/documents` | 文档搜索 |
+| GET | `/api/documents/search` | 附件全文搜索 (PDF/DOCX/XLSX) |
+| GET | `/api/documents/{id}` | 附件详情 + 文本预览 |
 | GET | `/api/snapshots/by-page/{id}` | 按页 ID 获取快照 |
-| GET | `/api/snapshots/raw` | 按路径获取快照 |
-| GET | `/api/recommend/suggest` | 查询建议 |
-| GET | `/api/recommend/related` | 相关内容推荐 |
-| GET | `/api/recommend/hot` | 热门查询 |
+| GET | `/api/snapshots/raw` | 按路径获取快照 (目录穿越防护) |
+| GET | `/api/recommend/suggest` | 查询建议 (前缀匹配) |
+| GET | `/api/recommend/related` | 相关内容推荐 (用户画像加权) |
+| GET | `/api/recommend/hot` | 24h 热门查询 |
+| GET | `/api/logs/stats` | Dashboard 统计 |
+| GET | `/api/logs/hot-queries` | 热门查询词 Top-N |
+| GET | `/api/logs/recent` | 最近查询记录 |
+| GET | `/api/logs/query-type-distribution` | 查询类型分布 |
+| GET | `/api/logs/daily-trend` | 每日查询趋势 |
