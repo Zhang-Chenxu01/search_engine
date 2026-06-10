@@ -123,16 +123,21 @@ export default function SearchPage() {
                             </Text>
                           )}
                           <Space size={2}>
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              ES: {item.es_score?.toFixed(1)}
+                            <Text type="secondary" style={{ fontSize: 10 }}>
+                              BM25:{item.bm25_score?.toFixed(1)}
                             </Text>
-                            {item.preference_score > 0 && (
-                              <Text style={{ fontSize: 11, color: "#52c41a" }}>
-                                +{item.preference_score.toFixed(1)}
+                            {item.vsm_score > 0 && (
+                              <Text style={{ fontSize: 10, color: "#faad14" }}>
+                                VSM:{item.vsm_score.toFixed(2)}
+                              </Text>
+                            )}
+                            {item.personalization_score > 0 && (
+                              <Text style={{ fontSize: 10, color: "#52c41a" }}>
+                                +{item.personalization_score.toFixed(1)}
                               </Text>
                             )}
                             <Text style={{ fontSize: 11, fontWeight: 600 }}>
-                              ={item.final_score?.toFixed(1)}
+                              ={item.final_score?.toFixed(2)}
                             </Text>
                           </Space>
                           <a

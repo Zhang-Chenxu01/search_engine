@@ -56,9 +56,12 @@ class SearchResultItem(BaseModel):
     category: str = ""
     publish_time: Optional[str] = None
     snapshot_path: str = ""
-    es_score: Optional[float] = None
-    preference_score: float = 0.0
-    final_score: Optional[float] = None
+    # Decomposed scores
+    bm25_score: Optional[float] = None       # ES BM25 relevance
+    vsm_score: float = 0.0                    # TF-IDF cosine similarity
+    pagerank_score: float = 0.0               # link analysis (reserved)
+    personalization_score: float = 0.0         # user preference boost
+    final_score: Optional[float] = None        # 0.60*BM25 + 0.20*VSM + 0.15*PR + 0.05*PERS
     highlight: Optional[dict[str, list[str]]] = None
 
 

@@ -168,7 +168,10 @@ class NewsSpider(scrapy.Spider):
             href = a_tag.attrib.get("href", "")
             if not href:
                 continue
-            full_url = urljoin(response.url, href)
+            try:
+                full_url = urljoin(response.url, href)
+            except ValueError:
+                continue
             if not is_allowed_domain(full_url):
                 continue
 
@@ -267,7 +270,10 @@ class NewsSpider(scrapy.Spider):
             href = a_tag.attrib.get("href", "")
             if not href:
                 continue
-            full_url = urljoin(response.url, href)
+            try:
+                full_url = urljoin(response.url, href)
+            except ValueError:
+                continue
             text = a_tag.css("::text").get("").strip()
             anchor_texts.append(text)
             if full_url.lower().endswith(

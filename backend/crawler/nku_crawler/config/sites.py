@@ -1,243 +1,98 @@
-"""Site-level crawl configuration.
+"""Site-level crawl configuration — tuned for ~150K capacity.
 
-Each site dict has these fields:
-
-===============  ====================================================
-Field             Description
-===============  ====================================================
-name              Unique identifier for the site (used in logs).
-base_url          Root URL for resolving relative links.
-allowed_domains   List of domains the spider is permitted to visit.
-category          Category tag applied to every item from this site.
-source_site       ``source_site`` value in the PageItem.
-max_pages         Stop after this many PageItems from this site.
-start_urls        List of entry-point URLs (listing pages).
-list_patterns     Regex patterns that identify list/pagination pages.
-detail_patterns   Regex patterns that identify article/detail pages.
-content_selectors CSS selectors for extracting body text.
-title_selectors   CSS selectors for extracting the article title.
-===============  ====================================================
+Based on actual crawl results (2026-06-10):
+  - High-yield sites (3K-4K): news, chem, cz, career, sky, mse → raised to 5000
+  - Medium sites (1K-3K): raised to 3000
+  - Low sites (<1K): raised to 1500
+  - New domains discovered during crawl: added from offsite/domains list
 """
 
-# ═══════════════════════════════════════════════════════════════════
-#  Per-run crawl settings
-# ═══════════════════════════════════════════════════════════════════
-
 CRAWL_SETTINGS: dict = {
-    "default_max_pages": 100,       # 单站默认上限（可通过 -a max_pages=N 覆盖）
-    "global_max_pages": 0,          # 全局上限（0 = 不限）
-    "download_delay": 2,            # 同域名请求间隔（秒）
-    "concurrent_per_domain": 4,     # 单域名并发数
+    "default_max_pages": 1500,
+    "global_max_pages": 0,
+    "download_delay": 1,
+    "concurrent_per_domain": 2,
     "obey_robots": True,
-    "depth_limit": 5,               # 从 start_url 出发的最大深度
+    "depth_limit": 10,
 }
 
-# ═══════════════════════════════════════════════════════════════════
-#  Site definitions
-# ═══════════════════════════════════════════════════════════════════
+_DEFAULT_SELECTORS = [
+    ".wp_articlecontent *", "#content *", ".content *",
+    "article *", ".article-content *", ".TRS_Editor *",
+    ".detail-content *", ".news-content *",
+]
+
+_DEFAULT_TITLE = ["h1::text", ".title::text", ".article-title::text"]
+
+_DEFAULT_PATTERNS = [r"/\d{4}/\d{2}/\d{2}/[^/]+\.html?$",
+                     r"/info/\d+/\d+\.htm"]
+
+def _site(name, domain, category, max_pages=1500, start_paths=None, **kw):
+    if start_paths is None:
+        start_paths = [f"https://{domain}"]
+    else:
+        start_paths = [f"https://{domain}{p}" for p in start_paths]
+    return {
+        "name": f"nku_{name}",
+        "base_url": f"https://{domain}",
+        "allowed_domains": [domain],
+        "category": category,
+        "source_site": domain,
+        "max_pages": max_pages,
+        "start_urls": start_paths,
+        "list_patterns": kw.get("list_patterns", []),
+        "detail_patterns": kw.get("detail_patterns", _DEFAULT_PATTERNS),
+        "content_selectors": kw.get("content_selectors", _DEFAULT_SELECTORS),
+        "title_selectors": kw.get("title_selectors", _DEFAULT_TITLE),
+    }
+
 
 SITES: list[dict] = [
-    # ── 南开新闻网 ───────────────────────────────────────────
-    {
-        "name": "nku_news_ywsd",
-        "base_url": "https://news.nankai.edu.cn",
-        "allowed_domains": ["news.nankai.edu.cn"],
-        "category": "ywsd",
-        "source_site": "news.nankai.edu.cn",
-        "max_pages": 5000,
-        "start_urls": ["https://news.nankai.edu.cn/ywsd/index.shtml"],
-        "list_patterns": [r"/ywsd/index(?:_\d+)?\.shtml"],
-        "detail_patterns": [r"/ywsd/system/\d{4}/\d{2}/\d{2}/\d+\.shtml"],
-        "content_selectors": ["article .content *", ".article-content *",
-                              ".TRS_Editor *", "#content *", ".content *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
-    {
-        "name": "nku_news_mtnk",
-        "base_url": "https://news.nankai.edu.cn",
-        "allowed_domains": ["news.nankai.edu.cn"],
-        "category": "mtnk",
-        "source_site": "news.nankai.edu.cn",
-        "max_pages": 5000,
-        "start_urls": ["https://news.nankai.edu.cn/mtnk/index.shtml"],
-        "list_patterns": [r"/mtnk/index(?:_\d+)?\.shtml"],
-        "detail_patterns": [r"/mtnk/system/\d{4}/\d{2}/\d{2}/\d+\.shtml"],
-        "content_selectors": ["article .content *", ".article-content *",
-                              ".TRS_Editor *", "#content *", ".content *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
-    {
-        "name": "nku_news_zhxw",
-        "base_url": "https://news.nankai.edu.cn",
-        "allowed_domains": ["news.nankai.edu.cn"],
-        "category": "zhxw",
-        "source_site": "news.nankai.edu.cn",
-        "max_pages": 5000,
-        "start_urls": ["https://news.nankai.edu.cn/zhxw/index.shtml"],
-        "list_patterns": [r"/zhxw/index(?:_\d+)?\.shtml"],
-        "detail_patterns": [r"/zhxw/system/\d{4}/\d{2}/\d{2}/\d+\.shtml"],
-        "content_selectors": ["article .content *", ".article-content *",
-                              ".TRS_Editor *", "#content *", ".content *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
-    {
-        "name": "nku_news_nkrw",
-        "base_url": "https://news.nankai.edu.cn",
-        "allowed_domains": ["news.nankai.edu.cn"],
-        "category": "nkrw",
-        "source_site": "news.nankai.edu.cn",
-        "max_pages": 5000,
-        "start_urls": ["https://news.nankai.edu.cn/nkrw/index.shtml"],
-        "list_patterns": [r"/nkrw/index(?:_\d+)?\.shtml"],
-        "detail_patterns": [r"/nkrw/system/\d{4}/\d{2}/\d{2}/\d+\.shtml"],
-        "content_selectors": ["article .content *", ".article-content *",
-                              ".TRS_Editor *", "#content *", ".content *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
+    # ── Tier 1: 高产站点 (实际跑出 3K-4K) — 提到 8000 ──────
+    _site("news",  "news.nankai.edu.cn", "news",   max_pages=8000),
+    _site("chem",  "chem.nankai.edu.cn",  "chemistry", max_pages=8000),
+    _site("cz",    "cz.nankai.edu.cn",    "marxism", max_pages=8000),
+    _site("career","career.nankai.edu.cn","employment", max_pages=8000),
+    _site("sky",   "sky.nankai.edu.cn",   "biology", max_pages=8000),
+    _site("mse",   "mse.nankai.edu.cn",   "materials", max_pages=8000),
 
-    # ── 南开大学官网 ─────────────────────────────────────────
-    {
-        "name": "nku_main",
-        "base_url": "https://www.nankai.edu.cn",
-        "allowed_domains": ["www.nankai.edu.cn"],
-        "category": "portal",
-        "source_site": "www.nankai.edu.cn",
-        "max_pages": 10000,
-        "start_urls": ["https://www.nankai.edu.cn"],
-        "list_patterns": [],
-        "detail_patterns": [r"/\d{4}/\d{2}/\d{2}/[^/]+\.html?$",
-                            r"/info/\d+/\d+\.htm"],
-        "content_selectors": [".wp_articlecontent *", "#content *",
-                              ".content *", "article *"],
-        "title_selectors": ["h1::text", ".title::text", ".wp_title::text"],
-    },
+    # ── Tier 2: 中产站点 (1K-3K) — 提到 5000 ──────────────
+    _site("international","international.nankai.edu.cn","international",max_pages=5000),
+    _site("ai",     "ai.nankai.edu.cn",    "cs",       max_pages=5000),
+    _site("finance","finance.nankai.edu.cn","finance",  max_pages=5000),
+    _site("cs",     "cs.nankai.edu.cn",    "cs",       max_pages=5000),
+    _site("wxy",    "wxy.nankai.edu.cn",   "literature",max_pages=5000),
+    _site("medical","medical.nankai.edu.cn","medical",  max_pages=5000),
+    _site("math",   "math.nankai.edu.cn",  "math",     max_pages=5000),
+    _site("tas",    "tas.nankai.edu.cn",   "tourism",  max_pages=5000),
+    _site("graduate","graduate.nankai.edu.cn","graduate",max_pages=5000),
+    _site("sfs",    "sfs.nankai.edu.cn",   "foreign_lang",max_pages=5000),
+    _site("env",    "env.nankai.edu.cn",   "env",      max_pages=5000),
+    _site("skleoc", "skleoc.nankai.edu.cn","lab",      max_pages=5000),
+    _site("pharmacy","pharmacy.nankai.edu.cn","pharmacy",max_pages=5000),
+    _site("jwc",    "jwc.nankai.edu.cn",   "academic", max_pages=5000),
+    _site("phil",   "phil.nankai.edu.cn",  "philosophy",max_pages=5000),
+    _site("ceo",    "ceo.nankai.edu.cn",   "ee",       max_pages=5000),
+    _site("shxy",   "shxy.nankai.edu.cn",  "sociology",max_pages=5000),
+    _site("rsc",    "rsc.nankai.edu.cn",   "hr",       max_pages=5000),
+    _site("lib",    "lib.nankai.edu.cn",   "library",  max_pages=5000),
+    _site("history","history.nankai.edu.cn","history", max_pages=5000),
+    _site("hyxy",   "hyxy.nankai.edu.cn",  "language", max_pages=5000),
 
-    # ── 南开大学就业指导中心 ─────────────────────────────────
-    {
-        "name": "nku_career",
-        "base_url": "https://career.nankai.edu.cn",
-        "allowed_domains": ["career.nankai.edu.cn"],
-        "category": "employment",
-        "source_site": "career.nankai.edu.cn",
-        "max_pages": 10000,
-        "start_urls": ["https://career.nankai.edu.cn"],
-        "list_patterns": [],
-        "detail_patterns": [r"/\d{4}/\d{2}/\d{2}/[^/]+\.html?$",
-                            r"/web/[^/]+/detail\?id=\d+"],
-        "content_selectors": [".article-body *", ".content *",
-                              "#content *", "article *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
+    # ── Tier 3: 低产站点 (<1K) — 提到 3000 ────────────────
+    _site("www",    "www.nankai.edu.cn",   "portal",   max_pages=3000),
+    _site("law",    "law.nankai.edu.cn",   "law",      max_pages=3000),
+    _site("archives","archives.nankai.edu.cn","archives",max_pages=3000),
+    _site("xgb",    "xgb.nankai.edu.cn",   "student",  max_pages=3000),
+    _site("sklmcb", "sklmcb.nankai.edu.cn","lab",      max_pages=3000),
+    _site("std",    "std.nankai.edu.cn",   "research", max_pages=3000),
+    _site("sie",    "sie.nankai.edu.cn",   "education",max_pages=3000),
+    _site("cyber",  "cyber.nankai.edu.cn", "cs",       max_pages=3000),
+    _site("cc",     "cc.nankai.edu.cn",    "cs",       max_pages=3000),
+    _site("economics","economics.nankai.edu.cn","economics",max_pages=3000),
+    _site("yzb",    "yzb.nankai.edu.cn",   "admission",max_pages=3000),
+    _site("nkzbb",  "nkzbb.nankai.edu.cn", "procurement",max_pages=3000),
+    _site("zsb",    "zsb.nankai.edu.cn",   "admission",max_pages=3000),
 
-    # ── 南开大学研究生院 ─────────────────────────────────────
-    {
-        "name": "nku_graduate",
-        "base_url": "https://graduate.nankai.edu.cn",
-        "allowed_domains": ["graduate.nankai.edu.cn"],
-        "category": "graduate",
-        "source_site": "graduate.nankai.edu.cn",
-        "max_pages": 10000,
-        "start_urls": ["https://graduate.nankai.edu.cn"],
-        "list_patterns": [],
-        "detail_patterns": [r"/\d{4}/\d{2}/\d{2}/[^/]+\.html?$"],
-        "content_selectors": [".wp_articlecontent *", "#content *",
-                              ".content *", "article *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
-
-    # ── 南开大学教务处 ───────────────────────────────────────
-    {
-        "name": "nku_jwc",
-        "base_url": "https://jwc.nankai.edu.cn",
-        "allowed_domains": ["jwc.nankai.edu.cn"],
-        "category": "academic",
-        "source_site": "jwc.nankai.edu.cn",
-        "max_pages": 10000,
-        "start_urls": ["https://jwc.nankai.edu.cn"],
-        "list_patterns": [],
-        "detail_patterns": [r"/\d{4}/\d{2}/\d{2}/[^/]+\.html?$"],
-        "content_selectors": [".wp_articlecontent *", "#content *",
-                              ".content *", "article *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
-
-    # ── 南开大学图书馆 ───────────────────────────────────────
-    {
-        "name": "nku_lib",
-        "base_url": "https://lib.nankai.edu.cn",
-        "allowed_domains": ["lib.nankai.edu.cn"],
-        "category": "library",
-        "source_site": "lib.nankai.edu.cn",
-        "max_pages": 10000,
-        "start_urls": ["https://lib.nankai.edu.cn"],
-        "list_patterns": [],
-        "detail_patterns": [r"/\d{4}/\d{2}/\d{2}/[^/]+\.html?$"],
-        "content_selectors": [".wp_articlecontent *", "#content *",
-                              ".content *", "article *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
-
-    # ── 南开大学计算机学院 ───────────────────────────────────
-    {
-        "name": "nku_cc",
-        "base_url": "https://cc.nankai.edu.cn",
-        "allowed_domains": ["cc.nankai.edu.cn"],
-        "category": "cs",
-        "source_site": "cc.nankai.edu.cn",
-        "max_pages": 10000,
-        "start_urls": ["https://cc.nankai.edu.cn"],
-        "list_patterns": [],
-        "detail_patterns": [r"/\d{4}/\d{2}/\d{2}/[^/]+\.html?$"],
-        "content_selectors": [".wp_articlecontent *", "#content *",
-                              ".content *", "article *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
-
-    # ── 南开大学化学学院 ─────────────────────────────────────
-    {
-        "name": "nku_chem",
-        "base_url": "https://chem.nankai.edu.cn",
-        "allowed_domains": ["chem.nankai.edu.cn"],
-        "category": "chemistry",
-        "source_site": "chem.nankai.edu.cn",
-        "max_pages": 10000,
-        "start_urls": ["https://chem.nankai.edu.cn"],
-        "list_patterns": [],
-        "detail_patterns": [r"/\d{4}/\d{2}/\d{2}/[^/]+\.html?$"],
-        "content_selectors": [".wp_articlecontent *", "#content *",
-                              ".content *", "article *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
-
-    # ── 南开大学经济学院 ─────────────────────────────────────
-    {
-        "name": "nku_econ",
-        "base_url": "https://economics.nankai.edu.cn",
-        "allowed_domains": ["economics.nankai.edu.cn"],
-        "category": "economics",
-        "source_site": "economics.nankai.edu.cn",
-        "max_pages": 10000,
-        "start_urls": ["https://economics.nankai.edu.cn"],
-        "list_patterns": [],
-        "detail_patterns": [r"/\d{4}/\d{2}/\d{2}/[^/]+\.html?$"],
-        "content_selectors": [".wp_articlecontent *", "#content *",
-                              ".content *", "article *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
-
-    # ── 南开大学数学科学学院 ─────────────────────────────────
-    {
-        "name": "nku_math",
-        "base_url": "https://math.nankai.edu.cn",
-        "allowed_domains": ["math.nankai.edu.cn"],
-        "category": "math",
-        "source_site": "math.nankai.edu.cn",
-        "max_pages": 5000,
-        "start_urls": ["https://math.nankai.edu.cn"],
-        "list_patterns": [],
-        "detail_patterns": [r"/\d{4}/\d{2}/\d{2}/[^/]+\.html?$"],
-        "content_selectors": [".wp_articlecontent *", "#content *",
-                              ".content *", "article *"],
-        "title_selectors": ["h1::text", ".title::text"],
-    },
+    # ── 新增: 已验证可达 ─────────────────────────────────
 ]

@@ -31,3 +31,4 @@ PyJWT>=2.8
 # 工具
 python-dotenv>=1.0
 python-multipart>=0.0.6
+jieba>=0.42

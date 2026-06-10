@@ -82,6 +82,9 @@ DOCUMENTS_MAPPING: dict = {
             "parent_page_id": {"type": "long"},
             "parent_title":  {"type": "text", "analyzer": "ik_max_word_analyzer", "search_analyzer": "ik_smart_analyzer"},
             "parent_url":    {"type": "keyword"},
+            "source_site":   {"type": "keyword"},
+            "category":      {"type": "keyword"},
+            "text_length":   {"type": "integer"},
             "crawl_time":    {"type": "date", "format": "yyyy-MM-dd HH:mm:ss"},
         }
     },

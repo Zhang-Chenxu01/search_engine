@@ -32,10 +32,19 @@ from app.search.query_builder import (
 )
 from app.services.personalization_service import (
     UserProfile,
-    re_rank,
+    compute_preference_score,
 )
+from app.services.vsm_reranker import VSMReranker
 
 logger = logging.getLogger(__name__)
+
+# ── Score weights for the final ranking formula ───────────────
+W_BM25   = 0.60
+W_VSM    = 0.20
+W_PR     = 0.15   # PageRank (reserved)
+W_PERS   = 0.05   # Personalization
+
+_vsm = VSMReranker()
 
 # Regex to strip HTML tags except <em> (used in ES highlights)
 _STRIP_HTML_RE = re.compile(r"<(?!\s*/?\s*em\b)[^>]*>", re.IGNORECASE)
@@ -75,7 +84,7 @@ def _parse_page_hit(hit: dict[str, Any]) -> SearchResultItem:
         category=src.get("category", ""),
         publish_time=src.get("publish_time"),
         snapshot_path=src.get("snapshot_path", ""),
-        es_score=hit.get("_score"),
+        bm25_score=hit.get("_score"),
         highlight=highlight if highlight else None,
     )
 
@@ -97,7 +106,7 @@ def _parse_document_hit(hit: dict[str, Any]) -> DocumentResultItem:
         parent_title=src.get("parent_title", ""),
         parent_url=src.get("parent_url", ""),
         crawl_time=src.get("crawl_time"),
-        es_score=hit.get("_score"),
+        bm25_score=hit.get("_score"),
         highlight=highlight if highlight else None,
     )
 
@@ -130,6 +139,62 @@ class SearchService:
     def __init__(self, es_client: Elasticsearch) -> None:
         self.es = es_client
 
+    # ── Scoring helpers ─────────────────────────────────────────
+
+    def _fetch_content_for_vsm(self, items: list[SearchResultItem]) -> list[dict[str, str]]:
+        """Fetch ``content`` and ``anchor_text`` from ES for VSM scoring.
+
+        These fields are NOT in ``_source`` by default (to keep responses small),
+        so we do a lightweight multi-get against the pages index.
+        """
+        if not items:
+            return []
+        docs = []
+        try:
+            result = self.es.mget(
+                index=PAGES_INDEX,
+                body={"ids": [str(it.page_id) for it in items]},
+                _source=["content", "anchor_text"],
+            )
+            for doc in result.get("docs", []):
+                src = doc.get("_source", {}) if doc.get("found") else {}
+                docs.append({
+                    "title": src.get("title", ""),
+                    "content": src.get("content", ""),
+                    "anchor_text": src.get("anchor_text", ""),
+                })
+        except Exception as exc:
+            logger.warning("VSM mget failed, using empty content: %s", exc)
+            docs = [{"title": "", "content": "", "anchor_text": ""} for _ in items]
+        return docs
+
+    def _apply_ranking_formula(
+        self,
+        items: list[SearchResultItem],
+        vsm_scores: list[float],
+        profile: Optional[UserProfile],
+    ) -> list[SearchResultItem]:
+        """Compute final_score for each item using the weighted formula.
+
+        final = 0.60·BM25 + 0.20·VSM + 0.15·PageRank + 0.05·Personalization
+        """
+        for i, it in enumerate(items):
+            bm25 = it.bm25_score or 0.0
+            vsm = vsm_scores[i] if i < len(vsm_scores) else 0.0
+            pr = it.pagerank_score or 0.0
+            pers = compute_preference_score(it, profile) if profile else 0.0
+
+            it.vsm_score = round(vsm, 4)
+            it.personalization_score = round(pers, 4)
+            it.final_score = round(
+                W_BM25 * bm25 + W_VSM * vsm + W_PR * pr + W_PERS * pers,
+                4,
+            )
+
+        # Sort descending by final_score, then bm25_score as tie-breaker
+        items.sort(key=lambda x: (x.final_score or 0, x.bm25_score or 0), reverse=True)
+        return items
+
     # ── Pages search (multi_match) ─────────────────────────────
 
     async def search_pages(
@@ -138,9 +203,11 @@ class SearchService:
         params: PagesSearchParams,
         profile: Optional[UserProfile] = None,
     ) -> SearchResponse:
-        """Full-text search with multi_match across title/anchors/content.
+        """Full-text search with BM25 + VSM + personalised re-ranking.
 
-        If *profile* is provided, results are re-ranked with personalised scores.
+        1. ES BM25 recall (top-k)
+        2. TF-IDF cosine similarity (VSM) on title/content/anchor
+        3. Weighted formula: 0.60·BM25 + 0.20·VSM + 0.15·PR + 0.05·PERS
         """
         from_ = (params.page - 1) * params.page_size
         body = build_multi_match_query(
@@ -161,7 +228,13 @@ class SearchService:
 
         total: int = result["hits"]["total"]["value"] if isinstance(result["hits"]["total"], dict) else result["hits"]["total"]  # type: ignore[index]
         items = [_parse_page_hit(h) for h in result["hits"]["hits"]]
-        items = re_rank(items, profile)
+
+        # ── VSM reranking ─────────────────────────────────────
+        vsm_docs = self._fetch_content_for_vsm(items)
+        vsm_scores = _vsm.rerank(params.q, vsm_docs)
+
+        # ── Apply ranking formula ─────────────────────────────
+        items = self._apply_ranking_formula(items, vsm_scores, profile)
 
         filters_log: Optional[dict[str, Any]] = None
         if params.source_site or params.category:
@@ -203,7 +276,10 @@ class SearchService:
 
         total: int = result["hits"]["total"]["value"] if isinstance(result["hits"]["total"], dict) else result["hits"]["total"]  # type: ignore[index]
         items = [_parse_page_hit(h) for h in result["hits"]["hits"]]
-        items = re_rank(items, profile)
+
+        vsm_docs = self._fetch_content_for_vsm(items)
+        vsm_scores = _vsm.rerank(params.q, vsm_docs)
+        items = self._apply_ranking_formula(items, vsm_scores, profile)
 
         filters_log: Optional[dict[str, Any]] = None
         if params.source_site or params.category:
@@ -259,7 +335,9 @@ class SearchService:
                 items = [it for it in items if pattern.search(it.url)]
             total = len(items)
 
-        items = re_rank(items, profile)
+        vsm_docs = self._fetch_content_for_vsm(items)
+        vsm_scores = _vsm.rerank(params.q, vsm_docs)
+        items = self._apply_ranking_formula(items, vsm_scores, profile)
 
         filters_log: Optional[dict[str, Any]] = {
             "field": params.field,

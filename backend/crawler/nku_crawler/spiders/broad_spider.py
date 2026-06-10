@@ -62,7 +62,9 @@ _SKIP_PATH = re.compile(
     r"/(search|login|logout|register|user|admin|wp-admin|"
     r"wp-content/(?!uploads)|wp-json|api|feed|rss|"
     r"comment|reply|trackback|tag/|category/|author/|"
-    r"page/\d+|date/)\b",
+    r"page/\d+|date/)\b|"
+    r"\$\["     # unescaped template variables like $[portalCategoryId]
+    r"|nextcid=",  # broken pagination params (zhgl.nankai.edu.cn)
     re.IGNORECASE,
 )
 
@@ -143,24 +145,44 @@ class BroadSpider(scrapy.Spider):
         if count >= self._per_site_max or self._at_global_limit():
             return
 
+        # ── Skip non-HTML responses (PDF, images, etc.) ──
+        content_type = (response.headers.get("Content-Type", b"")).decode("utf-8", "ignore")
+        # Treat as HTML if text/html explicitly, or if Content-Type is missing
+        is_html = "text/html" in content_type or content_type.strip() == ""
+
         # ── Extract content → yield PageItem ──────────────
-        if self._total < self._per_site_max * len(SITES):
-            yield from self._extract_page(response, site)
+        if is_html and self._total < self._per_site_max * len(SITES):
+            try:
+                yield from self._extract_page(response, site)
+            except Exception:
+                pass  # binary file masquerading as HTML
 
         # ── Follow internal links (BFS) ───────────────────
-        if not self._at_global_limit():
+        if is_html and not self._at_global_limit():
             seen: set[str] = set()
             for a_tag in response.css("a[href]"):
                 href = a_tag.attrib.get("href", "")
                 if not href:
                     continue
-                full_url = urljoin(response.url, href)
+                # Skip non-URL strings (Chinese text, javascript:, mailto:, etc.)
+                if not href.startswith(("http://", "https://", "/", "./", "../")):
+                    if not href[0].isascii() or href.startswith(("javascript:", "mailto:", "tel:")):
+                        continue
+                try:
+                    full_url = urljoin(response.url, href)
+                except ValueError:
+                    continue
                 if not is_allowed_domain(full_url):
                     continue
-                norm = normalize_url(full_url)
+                # Skip file downloads
+                if _SKIP_EXT.search(full_url):
+                    continue
+                try:
+                    norm = normalize_url(full_url)
+                except ValueError:
+                    continue
                 if norm in seen:
                     continue
-                seen.add(norm)
                 if self._site_stats.get(site_name, 0) >= self._per_site_max:
                     break
                 if self._at_global_limit():
@@ -211,7 +233,10 @@ class BroadSpider(scrapy.Spider):
             href = a_tag.attrib.get("href", "")
             if not href:
                 continue
-            full_url = urljoin(response.url, href)
+            try:
+                full_url = urljoin(response.url, href)
+            except ValueError:
+                continue
             text = a_tag.css("::text").get("").strip()
             anchor_texts.append(text)
             if full_url.lower().endswith(

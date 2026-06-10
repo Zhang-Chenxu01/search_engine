@@ -23,8 +23,10 @@ export interface SearchResultItem {
   category: string;
   publish_time: string | null;
   snapshot_path: string;
-  es_score: number | null;
-  preference_score: number;
+  bm25_score: number | null;
+  vsm_score: number;
+  pagerank_score: number;
+  personalization_score: number;
   final_score: number | null;
   highlight?: Record<string, string[]>;
 }
