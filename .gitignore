@@ -33,20 +33,23 @@ frontend/.vite/
 
 # ── Data files (keep directory, ignore content) ──────────────
 # Crawler output — snapshots / attachments / jsonl are runtime data
-backend/data/snapshots/*
+backend/data/snapshots/**
 !backend/data/snapshots/.gitkeep
-backend/data/attachments/*
+backend/data/attachments/**
 !backend/data/attachments/.gitkeep
-backend/data/jsonl/*
+backend/data/jsonl/**
 !backend/data/jsonl/.gitkeep
 backend/data/*.zip
 
+# Crawler working directory data (batch outputs, subdir snapshots)
+backend/crawler/data/
+
 # Root-level data mirror (if any)
-data/snapshots/*
+data/snapshots/**
 !data/snapshots/.gitkeep
-data/attachments/*
+data/attachments/**
 !data/attachments/.gitkeep
-data/jsonl/*
+data/jsonl/**
 !data/jsonl/.gitkeep
 data/*.zip
 

@@ -40,7 +40,11 @@ class JsonlWriterPipeline:
 
 
 class SnapshotPipeline:
-    """Save raw HTML to disk as snapshot files."""
+    """Save raw HTML to disk as snapshot files.
+
+    Uses 2-level subdirectories (hash[:2]/hash[2:4]/hash.html) to avoid
+    NTFS filesystem slowdown when a single directory exceeds ~10K files.
+    """
 
     def open_spider(self, spider: Spider) -> None:
         settings = get_project_settings()
@@ -54,8 +58,10 @@ class SnapshotPipeline:
 
         url: str = item.get("url", "")
         url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
-        filename = f"{url_hash}.html"
-        filepath = os.path.join(self.snapshot_dir, filename)
+        # Subdirectory: a/b/abcd...html — caps ~256² dirs, ~270 files each at 68K
+        subdir = os.path.join(self.snapshot_dir, url_hash[:2], url_hash[2:4])
+        os.makedirs(subdir, exist_ok=True)
+        filepath = os.path.join(subdir, f"{url_hash}.html")
 
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(raw_html)

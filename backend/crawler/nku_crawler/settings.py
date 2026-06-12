@@ -51,6 +51,12 @@ HTTPCACHE_EXPIRATION_SECS = 86400          # 24 hours
 HTTPCACHE_DIR = "httpcache"
 HTTPCACHE_IGNORE_HTTP_CODES = []
 
+# ── Auto-throttle (polite crawling) ──────────────────────────
+AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_START_DELAY = 0.5
+AUTOTHROTTLE_MAX_DELAY = 5.0
+AUTOTHROTTLE_TARGET_CONCURRENCY = 2.0
+
 # ── Misc ────────────────────────────────────────────────────
 LOG_LEVEL = "INFO"
 RETRY_ENABLED = True
